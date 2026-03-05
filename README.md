@@ -510,3 +510,298 @@ Perform action >>
 	•	Keep UI independent so MGitPi can run with different skins later
 	•	Avoid blocking loops inside Git functions
 
+Below is a clear, complete, developer-ready “Menu Flow Specification” for MGitPi.
+This documents EVERY menu discussed so far, how they connect, and what each option triggers.
+This is meant for another developer to take over instantly and continue integration.
+
+You can paste this into README.md (as an extension section) or save as MENU_FLOW.md.
+
+⸻
+
+MGitPi – Full Menu Flow Specification
+
+This document describes the full navigation architecture, all menu screens, all hotkeys, and the action flow of MGitPi.
+
+It is the authoritative reference for integrating new features or expanding the CLI.
+
+⸻
+
+1. System Overview
+
+MGitPi has 3 main components:
+	1.	Splash Screen (from art.py)
+	2.	Main Menu System (driven by klm_menu.py)
+	3.	Action Handlers (Git ops, repo manager)
+
+The core loop is:
+
+splash()  
+→ main_menu  
+→ submenu (optional)  
+→ action function  
+→ return to menu  
+
+
+⸻
+
+2. Menu Architecture (Tree Structure)
+
+2.1 Top-Level Flow
+
+Splash Screen
+      ↓
+Workspace Menu  (MAIN MENU)
+      ↓
+Repo Selection Menu (if opened)
+      ↓
+Repo Actions Menu (status/add/commit/push/etc.)
+
+
+⸻
+
+3. Workspace Menu (MAIN MENU)
+
+Displayed immediately after splash.
+
+┌───────────────────────────────────────────────────────────────┐
+│ [ Menu ]                                                      │
+│ 1) Open repo (from saved list)                     (o)        │
+│ 2) Open repo by path (one-time)                    (p)        │
+│ 3) Clone new repo (SSH)                            (c)        │
+│ 4) Add repo to saved list                          (a)        │
+│ 5) Remove repo from saved list                     (r)        │
+│ 6) Validate saved repo list                        (v)        │
+│ 7) Exit                                             (x)        │
+└───────────────────────────────────────────────────────────────┘
+Perform action >>
+
+Options → Results
+
+Hotkey	Action	Goes to
+o	Open repo from saved list	→ Saved Repo List Menu
+p	Open a repo by entering path	→ Repo Actions Menu
+c	Clone new repo (SSH)	→ Clone Workflow
+a	Add repo to saved list	→ Path Input
+r	Remove repo from saved list	→ Removal Menu
+v	Validate saved repo list	→ Validation Output
+x	Exit to shell	Terminates program
+
+
+⸻
+
+4. Saved Repo List Menu
+
+Only appears when choosing Open repo (from saved list).
+
+┌──────────────────────────────────────────────────┐
+│ Saved Repositories                               │
+│ Select a repository to open:                     │
+│                                                  │
+│ 1) /home/pi/project1                             │
+│ 2) /home/pi/myrobot                              │
+│ 3) /home/pi/HERC-26                              │
+│                                                  │
+│ b) Back                                          │
+└──────────────────────────────────────────────────┘
+Perform action >>
+
+Options → Results
+
+Input	Action
+number	Opens repo → Repo Actions Menu
+b	Returns to Workspace Menu
+
+
+⸻
+
+5. Repo Actions Menu (per repo)
+
+Displayed after selecting or entering a repo path.
+
+┌──────────────────────────────────────────────────┐
+│ Repo: /path/to/repo                               │
+│--------------------------------------------------│
+│ 1) Status                                     (s)│
+│ 2) Add files (interactive)                    (a)│
+│ 3) Commit                                     (c)│
+│ 4) Push                                       (p)│
+│ 5) Pull                                       (u)│
+│ 6) List branches                              (b)│
+│ 7) Checkout branch                            (h)│
+│ 8) Go Back                                    (x)│
+└──────────────────────────────────────────────────┘
+Perform action >>
+
+Actions → Functions
+
+Option	Description	Calls
+Status	git status	git_ops.git_status()
+Add files interactively	Shows changed files → user selects	git_ops.git_add_interactive()
+Commit	Prompts for message	git_ops.git_commit()
+Push	git push	git_ops.git_push()
+Pull	git pull	git_ops.git_pull()
+List branches	git branch -a	git_ops.git_list_branches()
+Checkout branch	Input branch name	git_ops.git_checkout()
+Back	→ back to previous menu	returns
+
+
+⸻
+
+6. Add Repo to Saved List
+
+Workflow:
+
+User enters a path → repo_manager.add_repo() →
+Repo saved in repos.json → return to Workspace Menu
+
+Validation rules:
+	•	Path must exist
+	•	Must contain a .git folder
+	•	Normalized to absolute path
+
+⸻
+
+7. Remove Repo
+
+Menu generated dynamically:
+
+1) /path/A
+2) /path/B
+3) /path/C
+b) Back
+
+Selecting number removes entry from JSON.
+
+⸻
+
+8. Validate Repo List
+
+Runs through repos.json:
+	•	Missing directories flagged
+	•	Missing .git folder flagged
+	•	Broken symlinks flagged
+
+Output example:
+
+[ OK ] /home/pi/project1
+[ERR] /home/pi/old_project (missing)
+
+User returns to Workspace Menu.
+
+⸻
+
+9. Clone New Repo (SSH)
+
+Workflow:
+
+Ask for SSH URL →
+Ask for folder to clone into →
+Run git clone →
+Return to Workspace Menu
+
+Supports:
+
+git@github.com:user/repo.git
+
+
+⸻
+
+10. Repo Manager Behavior
+
+Location:
+
+~/.mgitpi/repos.json
+
+Structure:
+
+{
+  "repos": [
+    "/home/pi/project1",
+    "/home/pi/project2"
+  ]
+}
+
+All repo-related menus depend on this file.
+
+⸻
+
+11. Full Navigation Map (Graph Form)
+
+                ┌──────────────────────┐
+                │      Splash Screen   │
+                └──────────┬───────────┘
+                           ↓
+                ┌──────────────────────┐
+                │   Workspace Menu     │
+                └──────┬───────────────┘
+       ┌───────────────┼─────────────────────┬────────────────────────────┐
+       ↓               ↓                     ↓                            ↓
+Saved Repo Menu   Open Path Menu       Clone SSH        Add Repo         Remove Repo
+       │               │                    │               │                 │
+       │               │                    │               │                 │
+       └─────→ Repo Actions Menu  ←─────────┘               │                 │
+                       │                                     │                 │
+                       └──────────────→ Back ───────────────┘                 │
+                                                                               │
+                                                                               └→ Validate → Back
+
+
+⸻
+
+12. Developer Integration Checklist
+
+To extend the system:
+
+✔ Add new Git features
+
+→ edit git_ops.py
+→ add option to Repo Actions Menu
+→ map command in main.py
+
+✔ Add new top-level features
+
+→ extend workspace_menu in main.py
+→ add supporting submenu in menu_system
+
+✔ Modify splash
+
+→ edit art.py → splash()
+
+✔ Modify UI rendering
+
+→ edit ui_box.py
+
+✔ Add persistent data
+
+→ add to repo_manager.py
+→ store in ~/.mgitpi/
+
+⸻
+
+13. Known UX Rules
+	•	Backtracking is always possible via ← Back menus
+	•	Only Workspace Menu has Exit
+	•	Input prompt always ends with:
+
+Perform action >>
+
+
+
+⸻
+
+14. Developer Notes
+	•	All box drawing must use UTF-8
+	•	Width auto-scales using terminal width
+	•	Do not write Git logic in main.py
+	•	Keep UI independent so MGitPi can run with different skins later
+	•	Avoid blocking loops inside Git functions
+
+⸻
+
+If you want, I can also generate:
+
+✅ A full UML class diagram
+✅ A flowchart diagram for the menus
+✅ A developer onboarding PDF
+✅ A module-by-module README
+Just tell me and I’ll generate them.
