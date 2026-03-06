@@ -265,6 +265,36 @@ grep -rn "TODO\|FIXME\|pass$" --include="*.py" .
 
 ---
 
+## User Rules
+
+These rules govern how AI assistants (and contributors) must behave in this project.
+
+### U1. Always Explain Before Acting
+
+Before making any code change, file edit, or file write, describe exactly what
+you are going to do and wait for explicit confirmation from the user. Do not
+proceed silently. This applies to every file modification, not just large ones.
+
+### U2. Co-Author Trailer on Every Commit
+
+Every git commit in this repository must include the following trailer line:
+
+```
+Co-authored-by: kl mithunvel <klm@smtw.in>
+```
+
+Example commit message:
+
+```
+Add branch creation handler in git_ops.py
+
+Co-authored-by: kl mithunvel <klm@smtw.in>
+```
+
+Never omit this trailer. It must appear as the last line of every commit message.
+
+---
+
 ## Philosophy
 
 MGitPi is built for the Pi, not for the cloud. Keep it:
