@@ -6,9 +6,8 @@
 # 4) Banner uses art.brand_banner() and does NOT include header text anymore
 
 import os
-import re
 import shutil
-import art  # <-- new file
+import art
 
 M_CMD = 0
 M_PROMPT = 1
