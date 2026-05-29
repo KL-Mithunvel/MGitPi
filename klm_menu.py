@@ -12,6 +12,7 @@ import art
 M_CMD = 0
 M_PROMPT = 1
 M_HOTKEY = 2
+M_HELP = 3  # optional 4th element of an option list
 
 back_option = ["back", "Back...", "b"]
 
@@ -57,6 +58,29 @@ def _box(lines, width=90, title=None):
 
     out.append("└" + "─" * inner + "┘")
     return "\n".join(out)
+
+
+def _show_help(menu, width):
+    _clear()
+    print(art.brand_banner(width=width))
+    print()
+    menu_name = menu["menu"]
+    title = f"{menu_name} — Help"
+    lines = []
+    for opt in menu["options"]:
+        hotkey = opt[M_HOTKEY]
+        prompt = opt[M_PROMPT]
+        if len(opt) > M_HELP:
+            desc = opt[M_HELP]
+        else:
+            desc = "No description available."
+        lines.append(f"  ({hotkey})  {prompt}")
+        lines.append(f"       {desc}")
+        lines.append("")
+    lines.append("  Press ? again or Enter to close help.")
+    print(_box(lines, width=width, title=title))
+    print()
+    input("")
 
 
 # -------------------------
@@ -119,6 +143,11 @@ def display_menu(menu_dict):
             gap = 1
         lines.append(left + (" " * gap) + right)
 
+    # Help separator and hotkey
+    lines.append("─" * (width - 2))
+    help_left = "       ?) Help"
+    lines.append(help_left)
+
     print(_box(lines, width=width, title=menu_title))
     print()
 
@@ -126,6 +155,7 @@ def display_menu(menu_dict):
 def get_menu_input(menu):
     valid_chars = get_valid_hotkeys(menu)
     max_num = get_valid_choice_nums(menu)
+    width = menu.get("width", 90)
 
     while True:
         inp = input("Perform action >> ").strip()
@@ -133,6 +163,12 @@ def get_menu_input(menu):
         # Quit ONLY if the menu explicitly allows it (main menu only)
         if menu.get("allow_quit", False) and inp.lower() == "q":
             return "exit"
+
+        # Help hotkey
+        if inp in ("?",):
+            _show_help(menu, width)
+            display_menu(menu)
+            continue
 
         if not inp.isalnum():
             print("Invalid input.")
