@@ -1,0 +1,6 @@
+# MGitPi has no runtime dependencies.
+# It uses the Python 3.10+ standard library only.
+#
+# System requirements:
+#   python3  >= 3.10
+#   git      (any recent version, installed via package manager)
