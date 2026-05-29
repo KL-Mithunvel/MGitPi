@@ -130,3 +130,120 @@ def test_git_clone_local(temp_repo, tmp_path):
     cloned = dest / temp_repo.name
     assert cloned.exists()
     assert (cloned / ".git").exists()
+
+
+# ── Branch tests ──────────────────────────────────────────────────────────────
+
+def test_branch_list_has_current(temp_repo):
+    lines, err = git_ops.git_branch_list(temp_repo)
+    assert err is None
+    assert any("*" in l for l in lines)
+
+
+def test_branch_create_and_list(temp_repo):
+    ok, out = git_ops.git_branch_create(temp_repo, "feature-x")
+    assert ok, f"create failed: {out}"
+    lines, _ = git_ops.git_branch_list(temp_repo)
+    assert any("feature-x" in l for l in lines)
+
+
+def test_branch_switch(temp_repo):
+    git_ops.git_branch_create(temp_repo, "other-branch")
+    # switch back to original branch
+    lines, _ = git_ops.git_branch_list(temp_repo)
+    original = next(
+        (l.strip().lstrip("* ") for l in lines if "*" not in l and "other-branch" not in l),
+        None
+    )
+    if original:
+        ok, out = git_ops.git_branch_switch(temp_repo, original)
+        assert ok, f"switch failed: {out}"
+
+
+def test_branch_delete(temp_repo):
+    lines, _ = git_ops.git_branch_list(temp_repo)
+    current = next(l.strip().lstrip("* ") for l in lines if "*" in l)
+    git_ops.git_branch_create(temp_repo, "deleteme")
+    git_ops.git_branch_switch(temp_repo, current)
+    ok, out = git_ops.git_branch_delete(temp_repo, "deleteme")
+    assert ok, f"delete failed: {out}"
+    lines, _ = git_ops.git_branch_list(temp_repo)
+    assert not any("deleteme" in l for l in lines)
+
+
+# ── Stash tests ───────────────────────────────────────────────────────────────
+
+def test_stash_save_and_list(temp_repo):
+    (temp_repo / "stashme.txt").write_text("stash content")
+    git_ops.git_add_files(temp_repo, ["stashme.txt"])
+    ok, out = git_ops.git_stash_save(temp_repo, "test stash")
+    assert ok, f"stash save failed: {out}"
+    entries, err = git_ops.git_stash_list(temp_repo)
+    assert err is None
+    assert len(entries) >= 1
+
+
+def test_stash_pop(temp_repo):
+    (temp_repo / "popme.txt").write_text("pop content")
+    git_ops.git_add_files(temp_repo, ["popme.txt"])
+    git_ops.git_stash_save(temp_repo)
+    ok, out = git_ops.git_stash_pop(temp_repo)
+    assert ok, f"stash pop failed: {out}"
+
+
+def test_stash_drop(temp_repo):
+    (temp_repo / "dropme.txt").write_text("drop content")
+    git_ops.git_add_files(temp_repo, ["dropme.txt"])
+    git_ops.git_stash_save(temp_repo)
+    ok, out = git_ops.git_stash_drop(temp_repo, 0)
+    assert ok, f"stash drop failed: {out}"
+    entries, _ = git_ops.git_stash_list(temp_repo)
+    assert len(entries) == 0
+
+
+# ── Log test ──────────────────────────────────────────────────────────────────
+
+def test_git_log_returns_commits(temp_repo):
+    out, err = git_ops.git_log(temp_repo)
+    assert err is None
+    assert out is not None
+    assert len(out) > 0
+
+
+# ── Undo tests ────────────────────────────────────────────────────────────────
+
+def test_git_reset_soft(temp_repo):
+    (temp_repo / "undo.txt").write_text("undo")
+    git_ops.git_add_files(temp_repo, ["."])
+    git_ops.git_commit(temp_repo, "commit to undo")
+    ok, out = git_ops.git_reset_soft(temp_repo)
+    assert ok, f"reset soft failed: {out}"
+    status, _ = git_ops.git_status(temp_repo)
+    assert any("undo.txt" in l for l in status)
+
+
+def test_git_reset_mixed(temp_repo):
+    (temp_repo / "unmix.txt").write_text("unmix")
+    git_ops.git_add_files(temp_repo, ["."])
+    git_ops.git_commit(temp_repo, "commit to unmix")
+    ok, out = git_ops.git_reset_mixed(temp_repo)
+    assert ok, f"reset mixed failed: {out}"
+    status, _ = git_ops.git_status(temp_repo)
+    assert any("unmix.txt" in l for l in status)
+
+
+def test_git_unstage_all(temp_repo):
+    (temp_repo / "unstage.txt").write_text("unstage")
+    git_ops.git_add_files(temp_repo, ["unstage.txt"])
+    ok, out = git_ops.git_unstage_all(temp_repo)
+    assert ok, f"unstage failed: {out}"
+    status, _ = git_ops.git_status(temp_repo)
+    assert any("unstage.txt" in l for l in status)
+
+
+def test_git_discard_all(temp_repo):
+    (temp_repo / "README.md").write_text("modified content")
+    ok, out = git_ops.git_discard_all(temp_repo)
+    assert ok, f"discard failed: {out}"
+    content = (temp_repo / "README.md").read_text()
+    assert content == "# Test Repo\n"

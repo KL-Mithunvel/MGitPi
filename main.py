@@ -207,24 +207,174 @@ def push_repo():
         _pause(f"Push failed: {result}")
 
 
-def rebase_tools():
-    _pause("'rebase_tools' is not yet implemented.")
+def branch_list():
+    lines, err = git_ops.git_branch_list(_current_repo)
+    art.clear()
+    if err:
+        _pause(f"Error: {err}")
+        return
+    print("\nBranches:\n")
+    for line in lines:
+        print(f"  {line}")
+    input("\nPress Enter to continue...")
 
 
-def branch_tools():
-    _pause("'branch_tools' is not yet implemented.")
+def branch_switch():
+    art.clear()
+    name = input("Branch name to switch to: ").strip()
+    if not name: return
+    ok, out = git_ops.git_branch_switch(_current_repo, name)
+    _pause(out)
 
 
-def stash_tools():
-    _pause("'stash_tools' is not yet implemented.")
+def branch_create():
+    art.clear()
+    name = input("New branch name: ").strip()
+    if not name: return
+    ok, out = git_ops.git_branch_create(_current_repo, name)
+    _pause(out if ok else f"Failed: {out}")
+
+
+def branch_delete():
+    lines, err = git_ops.git_branch_list(_current_repo)
+    if err:
+        _pause(f"Error: {err}")
+        return
+    local = [l.strip().lstrip("* ") for l in lines if not l.strip().startswith("remotes/")]
+    if not local:
+        _pause("No local branches found.")
+        return
+    art.clear()
+    print("\nLocal branches:\n")
+    for i, b in enumerate(local, 1):
+        print(f"  {i:>2})  {b}")
+    print("\n       b)  Back\n")
+    while True:
+        choice = input("Select branch to delete >> ").strip().lower()
+        if choice == "b": return
+        if choice.isdigit():
+            idx = int(choice) - 1
+            if 0 <= idx < len(local):
+                name = local[idx]
+                confirm = input(f"  Delete '{name}'? (y/N): ").strip().lower()
+                if confirm == "y":
+                    ok, out = git_ops.git_branch_delete(_current_repo, name)
+                    _pause(out if ok else f"Failed: {out}")
+                else:
+                    _pause("Cancelled.")
+                return
+        print("  Invalid selection.")
+
+
+def stash_save():
+    art.clear()
+    msg = input("Stash message (optional): ").strip()
+    ok, out = git_ops.git_stash_save(_current_repo, msg)
+    _pause(out if ok else f"Failed: {out}")
+
+
+def stash_list():
+    entries, err = git_ops.git_stash_list(_current_repo)
+    art.clear()
+    if err:
+        _pause(f"Error: {err}")
+        return
+    if not entries:
+        _pause("No stashes saved.")
+        return
+    print("\nStash list:\n")
+    for e in entries:
+        print(f"  {e}")
+    input("\nPress Enter to continue...")
+
+
+def stash_pop():
+    ok, out = git_ops.git_stash_pop(_current_repo)
+    _pause(out)
+
+
+def stash_apply():
+    entries, err = git_ops.git_stash_list(_current_repo)
+    if not entries:
+        _pause("No stashes saved.")
+        return
+    art.clear()
+    print("\nStash list:\n")
+    for i, e in enumerate(entries):
+        print(f"  {i})  {e}")
+    idx_str = input("\nApply stash index (default 0): ").strip()
+    idx = int(idx_str) if idx_str.isdigit() else 0
+    ok, out = git_ops.git_stash_apply(_current_repo, idx)
+    _pause(out)
+
+
+def stash_drop():
+    entries, err = git_ops.git_stash_list(_current_repo)
+    if not entries:
+        _pause("No stashes saved.")
+        return
+    art.clear()
+    print("\nStash list:\n")
+    for i, e in enumerate(entries):
+        print(f"  {i})  {e}")
+    idx_str = input("\nDrop stash index (default 0): ").strip()
+    idx = int(idx_str) if idx_str.isdigit() else 0
+    confirm = input(f"  Drop stash@{{{idx}}}? (y/N): ").strip().lower()
+    if confirm == "y":
+        ok, out = git_ops.git_stash_drop(_current_repo, idx)
+        _pause(out if ok else f"Failed: {out}")
+    else:
+        _pause("Cancelled.")
 
 
 def log_view():
-    _pause("'log_view' is not yet implemented.")
+    out, err = git_ops.git_log(_current_repo)
+    art.clear()
+    if err:
+        _pause(f"Error: {err}")
+        return
+    print("\nCommit log (last 20):\n")
+    print(out)
+    input("\nPress Enter to continue...")
 
 
-def undo_tools():
-    _pause("'undo_tools' is not yet implemented.")
+def undo_soft():
+    confirm = input("Undo last commit (keep staged)? (y/N): ").strip().lower()
+    if confirm == "y":
+        ok, out = git_ops.git_reset_soft(_current_repo)
+        _pause(out if ok else f"Failed: {out}")
+    else:
+        _pause("Cancelled.")
+
+
+def undo_mixed():
+    confirm = input("Undo last commit (unstage changes)? (y/N): ").strip().lower()
+    if confirm == "y":
+        ok, out = git_ops.git_reset_mixed(_current_repo)
+        _pause(out if ok else f"Failed: {out}")
+    else:
+        _pause("Cancelled.")
+
+
+def unstage_all():
+    confirm = input("Unstage all staged files? (y/N): ").strip().lower()
+    if confirm == "y":
+        ok, out = git_ops.git_unstage_all(_current_repo)
+        _pause("Done." if ok else f"Failed: {out}")
+    else:
+        _pause("Cancelled.")
+
+
+def discard_all():
+    art.clear()
+    print(art.red("\n  WARNING: This will permanently discard ALL unstaged changes."))
+    print("  This cannot be undone.\n")
+    confirm1 = input("  Type 'discard' to confirm: ").strip().lower()
+    if confirm1 == "discard":
+        ok, out = git_ops.git_discard_all(_current_repo)
+        _pause("Done." if ok else f"Failed: {out}")
+    else:
+        _pause("Cancelled.")
 
 
 # -------------------------
@@ -236,13 +386,13 @@ workspace_menu = {
     "name": "workspace",
     "width": 90,
     "options": [
-        ["open_repo", "Open repo (from saved list)", "o"],
-        ["open_repo_by_path", "Open repo by path (one-time)", "p"],
-        ["clone_repo_ssh", "Clone new repo (SSH)", "c"],
-        ["add_repo", "Add repo to saved list", "a"],
-        ["remove_repo", "Remove repo from saved list", "r"],
-        ["validate_repo_list", "Validate saved repo list", "v"],
-        ["exit", "Exit", "x"],
+        ["open_repo", "Open repo (from saved list)", "o", "Open a saved Git repository from your persistent list. Use (a) to add repos."],
+        ["open_repo_by_path", "Open repo by path (one-time)", "p", "Enter any path to a local Git repo. Useful for one-off access without saving."],
+        ["clone_repo_ssh", "Clone new repo (SSH)", "c", "Clone a remote repository using an SSH URL (git@github.com:user/repo.git)."],
+        ["add_repo", "Add repo to saved list", "a", "Add a local Git repository path to your saved list."],
+        ["remove_repo", "Remove repo from saved list", "r", "Remove a repository from your saved list. Does not delete files on disk."],
+        ["validate_repo_list", "Validate saved repo list", "v", "Check every saved repo: flags missing directories and missing .git folders."],
+        ["exit", "Exit", "x", "Exit MGitPi and return to the shell."],
     ],
     "back_option": False,
     "back_to": None
@@ -253,16 +403,16 @@ repo_menu = {
     "name": "repo",
     "width": 90,
     "options": [
-        ["repo_status", "Status", "s"],
-        ["stage_changes", "Stage changes", "a"],
-        ["commit_changes", "Commit", "c"],
-        ["pull_repo", "Pull", "l"],
-        ["push_repo", "Push", "p"],
-        ["menu:rebase", "Rebase tools", "r"],
-        ["menu:branch", "Branch tools", "b"],
-        ["menu:stash", "Stash tools", "t"],
-        ["log_view", "Log", "g"],
-        ["menu:undo", "Undo / Cleanup", "u"],
+        ["repo_status", "Status", "s", "Show the current working tree status: staged, unstaged, and untracked files."],
+        ["stage_changes", "Stage changes", "a", "Interactively stage files for commit. Type numbers or 'all' to select."],
+        ["commit_changes", "Commit", "c", "Commit staged changes with a message."],
+        ["pull_repo", "Pull", "l", "Fetch and merge changes from the remote branch (git pull)."],
+        ["push_repo", "Push", "p", "Upload local commits to the remote repository (git push)."],
+        ["menu:rebase", "Rebase tools", "r", "Rebase tools: replay commits on top of another branch."],
+        ["menu:branch", "Branch tools", "b", "Branch tools: list, create, switch, and delete branches."],
+        ["menu:stash", "Stash tools", "t", "Stash tools: save and restore uncommitted work temporarily."],
+        ["log_view", "Log", "g", "View the recent commit history (last 20 commits)."],
+        ["menu:undo", "Undo / Cleanup", "u", "Undo and cleanup: reverse commits or discard changes."],
     ],
     "back_option": True,
     "back_to": "workspace"
@@ -273,9 +423,9 @@ rebase_menu = {
     "name": "rebase",
     "width": 90,
     "options": [
-        ["rebase_tools", "Rebase onto origin/main (TODO)", "m"],
-        ["rebase_tools", "Rebase continue (TODO)", "c"],
-        ["rebase_tools", "Rebase abort (TODO)", "a"],
+        ["rebase_onto_main", "Rebase onto origin/main", "m", "Replay your current branch's commits on top of origin/main."],
+        ["rebase_continue", "Rebase continue", "c", "Continue an in-progress rebase after resolving conflicts."],
+        ["rebase_abort", "Rebase abort", "a", "Abort the current rebase and restore the original branch state."],
     ],
     "back_option": True,
     "back_to": "repo"
@@ -286,10 +436,10 @@ branch_menu = {
     "name": "branch",
     "width": 90,
     "options": [
-        ["branch_tools", "List branches (TODO)", "l"],
-        ["branch_tools", "Switch branch (TODO)", "s"],
-        ["branch_tools", "Create branch (TODO)", "c"],
-        ["branch_tools", "Delete branch (TODO)", "d"],
+        ["branch_list", "List branches", "l", "List all local and remote branches. Your current branch is marked with *."],
+        ["branch_switch", "Switch branch", "s", "Switch to an existing branch (git checkout)."],
+        ["branch_create", "Create branch", "c", "Create a new branch and switch to it immediately (git checkout -b)."],
+        ["branch_delete", "Delete branch", "d", "Delete a local branch. Prompts for confirmation."],
     ],
     "back_option": True,
     "back_to": "repo"
@@ -300,11 +450,11 @@ stash_menu = {
     "name": "stash",
     "width": 90,
     "options": [
-        ["stash_tools", "Stash save (TODO)", "s"],
-        ["stash_tools", "Stash list (TODO)", "l"],
-        ["stash_tools", "Stash apply (TODO)", "a"],
-        ["stash_tools", "Stash pop (TODO)", "p"],
-        ["stash_tools", "Stash drop (TODO)", "d"],
+        ["stash_save", "Stash save", "s", "Save your current uncommitted changes to the stash stack."],
+        ["stash_list", "Stash list", "l", "Show all stashed changesets with their index numbers."],
+        ["stash_apply", "Stash apply", "a", "Apply a stash by index without removing it from the stack."],
+        ["stash_pop", "Stash pop", "p", "Apply the most recent stash and remove it from the stack."],
+        ["stash_drop", "Stash drop", "d", "Delete a stash entry by index."],
     ],
     "back_option": True,
     "back_to": "repo"
@@ -315,10 +465,10 @@ undo_menu = {
     "name": "undo",
     "width": 90,
     "options": [
-        ["undo_tools", "Undo last commit (soft) (TODO)", "s"],
-        ["undo_tools", "Undo last commit (mixed) (TODO)", "m"],
-        ["undo_tools", "Unstage all (TODO)", "u"],
-        ["undo_tools", "Discard ALL changes (TODO)", "x"],
+        ["undo_soft", "Undo last commit (soft)", "s", "Undo the last commit but keep changes staged. Safe — nothing is lost."],
+        ["undo_mixed", "Undo last commit (mixed)", "m", "Undo the last commit and unstage the changes. Files stay modified on disk."],
+        ["unstage_all", "Unstage all", "u", "Unstage all staged files (moves them back to 'modified' without losing changes)."],
+        ["discard_all", "Discard ALL changes", "x", "DANGER: discard ALL unstaged changes permanently. Cannot be undone."],
     ],
     "back_option": True,
     "back_to": "repo"
@@ -371,8 +521,22 @@ def show_menu(m):
             pull_repo()
         elif cmd == "push_repo":
             push_repo()
-        elif cmd in ("rebase_tools", "branch_tools", "stash_tools", "log_view", "undo_tools"):
-            _pause(f"'{cmd}' is not yet implemented.")
+        elif cmd == "branch_list":    branch_list()
+        elif cmd == "branch_switch":  branch_switch()
+        elif cmd == "branch_create":  branch_create()
+        elif cmd == "branch_delete":  branch_delete()
+        elif cmd == "stash_save":     stash_save()
+        elif cmd == "stash_list":     stash_list()
+        elif cmd == "stash_pop":      stash_pop()
+        elif cmd == "stash_apply":    stash_apply()
+        elif cmd == "stash_drop":     stash_drop()
+        elif cmd == "log_view":       log_view()
+        elif cmd == "undo_soft":      undo_soft()
+        elif cmd == "undo_mixed":     undo_mixed()
+        elif cmd == "unstage_all":    unstage_all()
+        elif cmd == "discard_all":    discard_all()
+        elif cmd in ("rebase_onto_main", "rebase_continue", "rebase_abort"):
+            _pause(f"Rebase tools not yet implemented.")
 
 
 if __name__ == "__main__":
